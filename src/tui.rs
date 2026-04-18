@@ -18,7 +18,6 @@ use crate::board::{Board, Cell, Owner};
 use crate::card::{
     ARROW_E, ARROW_N, ARROW_NE, ARROW_NW, ARROW_S, ARROW_SE, ARROW_SW, ARROW_W, Card,
 };
-use crate::history;
 use crate::solver::{Move, best_move};
 use crate::state::{SaveState, load, save};
 
@@ -31,9 +30,6 @@ pub struct App {
     pub status_msg: String,
     pub cursor: (usize, usize),
     pub selected_hand: usize,
-    pub db: Option<rusqlite::Connection>,
-    pub game_id: i64,
-    pub move_num: i32,
 }
 
 #[derive(PartialEq, Eq)]
@@ -54,13 +50,6 @@ pub enum CardTarget {
 
 impl App {
     pub fn new() -> Self {
-        let (db, game_id) = match history::open() {
-            Ok(conn) => {
-                let gid = history::new_game(&conn).unwrap_or(0);
-                (Some(conn), gid)
-            }
-            Err(_) => (None, 0),
-        };
         Self {
             board: Board::new(),
             hand: Vec::new(),
@@ -70,9 +59,6 @@ impl App {
             status_msg: String::new(),
             cursor: (0, 0),
             selected_hand: 0,
-            db,
-            game_id,
-            move_num: 0,
         }
     }
 
@@ -235,22 +221,6 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                             let idx = app.selected_hand.min(app.hand.len() - 1);
                             let card = app.hand.remove(idx);
                             app.selected_hand = idx.min(app.hand.len().saturating_sub(1));
-                            let score = app.best.as_ref().map_or(0, |m| m.score);
-                            if let Some(ref db) = app.db {
-                                let _ = history::record_move(
-                                    db,
-                                    &history::MoveRecord {
-                                        game_id: app.game_id,
-                                        move_num: app.move_num,
-                                        card,
-                                        row: r,
-                                        col: c,
-                                        score,
-                                        board: app.board.clone(),
-                                    },
-                                );
-                            }
-                            app.move_num += 1;
                             app.board.set(
                                 r,
                                 c,
@@ -270,24 +240,6 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                         app.best = None;
                         app.status_msg = "Board reset.".into();
                         let _ = save(&app.to_save_state());
-                    }
-                    KeyCode::Char('W') => {
-                        if let Some(ref db) = app.db {
-                            let _ = history::record_result(db, app.game_id, "win");
-                        }
-                        app.status_msg = "Result recorded: win.".into();
-                    }
-                    KeyCode::Char('L') => {
-                        if let Some(ref db) = app.db {
-                            let _ = history::record_result(db, app.game_id, "loss");
-                        }
-                        app.status_msg = "Result recorded: loss.".into();
-                    }
-                    KeyCode::Char('D') => {
-                        if let Some(ref db) = app.db {
-                            let _ = history::record_result(db, app.game_id, "draw");
-                        }
-                        app.status_msg = "Result recorded: draw.".into();
                     }
                     _ => {}
                 },
@@ -321,9 +273,6 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                                         target: CardTarget::Board { row, col, owner },
                                     } => {
                                         app.board.set(row, col, Cell::Occupied { card, owner });
-                                        if let Some(ref db) = app.db {
-                                            let _ = history::record_cards_seen(db, &app.board);
-                                        }
                                         app.status_msg = format!(
                                             "Placed {} at ({row},{col})",
                                             card.stat_string()
@@ -616,18 +565,6 @@ fn draw_controls(f: &mut Frame, area: Rect) {
         Line::from(vec![
             Span::styled("Space    ", Style::default().fg(Color::Yellow)),
             Span::raw("solve best move"),
-        ]),
-        Line::from(vec![
-            Span::styled("w+shift  ", Style::default().fg(Color::Yellow)),
-            Span::raw("record win"),
-        ]),
-        Line::from(vec![
-            Span::styled("l+shift  ", Style::default().fg(Color::Yellow)),
-            Span::raw("record loss"),
-        ]),
-        Line::from(vec![
-            Span::styled("d+shift  ", Style::default().fg(Color::Yellow)),
-            Span::raw("record draw"),
         ]),
         Line::from(vec![
             Span::styled("r        ", Style::default().fg(Color::Yellow)),
