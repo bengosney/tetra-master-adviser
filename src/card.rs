@@ -111,20 +111,22 @@ impl Card {
 
     /// Expected attack value using the visible digit midpoint.
     pub fn attack_value(self) -> f32 {
-        (self.attack as f32) * 16.0 + 8.0
+        (self.attack as f32) * 16.0 + 7.5
     }
 
     /// Expected defense value against a given attacker type.
-    pub fn defense_value(self, attacker_type: CardType) -> f32 {
+    pub fn defense_value(&self, attacker_type: CardType) -> f32 {
+        // Pre-calculate the "mean" roll for each stat
+        // Formula: (Stat * 16) + 7.5 (the midpoint of 0..15)
+        let p_def = (self.phys_def as f32) * 16.0 + 7.5;
+        let m_def = (self.mag_def as f32) * 16.0 + 7.5;
+        let atk_pow = (self.attack as f32) * 16.0 + 7.5;
+
         match attacker_type {
-            CardType::Physical => (self.phys_def as f32) * 16.0 + 8.0,
-            CardType::Magic => (self.mag_def as f32) * 16.0 + 8.0,
-            CardType::Flexible => {
-                let p = (self.phys_def as f32) * 16.0 + 8.0;
-                let m = (self.mag_def as f32) * 16.0 + 8.0;
-                p.min(m)
-            }
-            CardType::Assault => (self.phys_def as f32) * 16.0 + 8.0,
+            CardType::Physical => p_def,
+            CardType::Magic => m_def,
+            CardType::Flexible => p_def.min(m_def),
+            CardType::Assault => p_def.min(m_def).min(atk_pow),
         }
     }
 
@@ -135,9 +137,6 @@ impl Card {
         let d = defender.defense_value(self.card_type);
         // P(A >= D) where A~U[0,a], D~U[0,d]
         // = integral over continuous uniform approximation
-        if a == 0.0 && d == 0.0 {
-            return 0.5;
-        }
         let a1 = a + 1.0;
         let d1 = d + 1.0;
         // P(A >= D) = 1 - P(A < D) = 1 - (d*(d+1)/2) / (a1*d1)  ... piecewise
