@@ -66,7 +66,7 @@ impl App {
         let mut app = Self::new();
         app.board = s.board;
         app.hand = s.hand;
-        app.cursor = s.cursor;
+        app.cursor = (s.cursor.0.min(3), s.cursor.1.min(3));
         app.status_msg = "State restored.".into();
         app
     }
