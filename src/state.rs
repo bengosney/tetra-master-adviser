@@ -13,14 +13,7 @@ pub struct SaveState {
 }
 
 fn save_path() -> PathBuf {
-    // Save next to the binary, or fall back to current directory.
-    let mut path = std::env::current_exe()
-        .unwrap_or_else(|_| PathBuf::from("."))
-        .parent()
-        .unwrap_or_else(|| std::path::Path::new("."))
-        .to_path_buf();
-    path.push("tetramaster_save.json");
-    path
+    std::env::temp_dir().join("tetramaster_save.json")
 }
 
 pub fn save(state: &SaveState) -> Result<()> {
@@ -29,7 +22,12 @@ pub fn save(state: &SaveState) -> Result<()> {
     Ok(())
 }
 
-pub fn load() -> Option<SaveState> {
-    let data = std::fs::read_to_string(save_path()).ok()?;
-    serde_json::from_str(&data).ok()
+pub fn load() -> Result<Option<SaveState>> {
+    let path = save_path();
+    if !path.exists() {
+        return Ok(None);
+    }
+    let data = std::fs::read_to_string(&path)?;
+    let state = serde_json::from_str(&data)?;
+    Ok(Some(state))
 }

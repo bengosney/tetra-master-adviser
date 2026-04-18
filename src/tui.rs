@@ -111,8 +111,13 @@ pub fn run() -> Result<()> {
     let mut terminal = Terminal::new(backend)?;
 
     let mut app = match load() {
-        Some(s) => App::from_save(s),
-        None => App::new(),
+        Ok(Some(s)) => App::from_save(s),
+        Ok(None) => App::new(),
+        Err(e) => {
+            let mut app = App::new();
+            app.status_msg = format!("Save file corrupted, starting fresh: {e}");
+            app
+        }
     };
     let result = run_loop(&mut terminal, &mut app);
 
@@ -120,11 +125,11 @@ pub fn run() -> Result<()> {
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
 
-    let _ = save(&SaveState {
+    save(&SaveState {
         board: app.board,
         hand: app.hand,
         cursor: app.cursor,
-    });
+    })?;
 
     result
 }
@@ -168,7 +173,9 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                         let (r, c) = app.cursor;
                         app.board.set(r, c, crate::board::Cell::Blocked);
                         app.status_msg = format!("Blocked ({r},{c})");
-                        let _ = save(&app.to_save_state());
+                        if let Err(e) = save(&app.to_save_state()) {
+                            app.status_msg = format!("Save failed: {e}");
+                        }
                     }
                     KeyCode::Char(' ') => app.solve(),
                     KeyCode::Char('[') => {
@@ -206,7 +213,9 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                                     "Red"
                                 }
                             );
-                            let _ = save(&app.to_save_state());
+                            if let Err(e) = save(&app.to_save_state()) {
+                                app.status_msg = format!("Save failed: {e}");
+                            }
                         } else {
                             app.status_msg = "No card at cursor to flip.".into();
                         }
@@ -231,7 +240,9 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                             );
                             app.best = None;
                             app.status_msg = format!("Placed {} at ({r},{c}).", card.stat_string());
-                            let _ = save(&app.to_save_state());
+                            if let Err(e) = save(&app.to_save_state()) {
+                                app.status_msg = format!("Save failed: {e}");
+                            }
                         }
                     }
                     KeyCode::Char('r') => {
@@ -239,7 +250,9 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                         app.hand.clear();
                         app.best = None;
                         app.status_msg = "Board reset.".into();
-                        let _ = save(&app.to_save_state());
+                        if let Err(e) = save(&app.to_save_state()) {
+                            app.status_msg = format!("Save failed: {e}");
+                        }
                     }
                     _ => {}
                 },
@@ -267,7 +280,9 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                                             card.stat_string(),
                                             app.hand.len()
                                         );
-                                        let _ = save(&app.to_save_state());
+                                        if let Err(e) = save(&app.to_save_state()) {
+                                            app.status_msg = format!("Save failed: {e}");
+                                        }
                                     }
                                     InputMode::EnteringCard {
                                         target: CardTarget::Board { row, col, owner },
@@ -277,7 +292,9 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                                             "Placed {} at ({row},{col})",
                                             card.stat_string()
                                         );
-                                        let _ = save(&app.to_save_state());
+                                        if let Err(e) = save(&app.to_save_state()) {
+                                            app.status_msg = format!("Save failed: {e}");
+                                        }
                                     }
                                     _ => {}
                                 }
