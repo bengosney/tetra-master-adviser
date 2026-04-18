@@ -67,9 +67,7 @@ impl App {
             best: None,
             input_mode: InputMode::Normal,
             input_buf: String::new(),
-            status_msg: String::from(
-                "wasd: move  i: add to hand  e: place opponent  p: place my card  b: block  space: solve  W/L/D: result  q: quit",
-            ),
+            status_msg: String::new(),
             cursor: (0, 0),
             selected_hand: 0,
             db,
@@ -83,9 +81,7 @@ impl App {
         app.board = s.board;
         app.hand = s.hand;
         app.cursor = s.cursor;
-        app.status_msg =
-            "State restored. wasd: move  i: hand  e: opponent  b: block  space: solve  W/L/D: result  q: quit"
-                .into();
+        app.status_msg = "State restored.".into();
         app
     }
 
@@ -159,18 +155,10 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
             match &app.input_mode {
                 InputMode::Normal => match key.code {
                     KeyCode::Char('q') => break,
-                    KeyCode::Char('h') | KeyCode::Left | KeyCode::Char('a') => {
-                        app.cursor.1 = app.cursor.1.saturating_sub(1)
-                    }
-                    KeyCode::Char('l') | KeyCode::Right | KeyCode::Char('d') => {
-                        app.cursor.1 = (app.cursor.1 + 1).min(3)
-                    }
-                    KeyCode::Char('k') | KeyCode::Up | KeyCode::Char('w') => {
-                        app.cursor.0 = app.cursor.0.saturating_sub(1)
-                    }
-                    KeyCode::Char('j') | KeyCode::Down | KeyCode::Char('s') => {
-                        app.cursor.0 = (app.cursor.0 + 1).min(3)
-                    }
+                    KeyCode::Left => app.cursor.1 = app.cursor.1.saturating_sub(1),
+                    KeyCode::Right => app.cursor.1 = (app.cursor.1 + 1).min(3),
+                    KeyCode::Up => app.cursor.0 = app.cursor.0.saturating_sub(1),
+                    KeyCode::Down => app.cursor.0 = (app.cursor.0 + 1).min(3),
                     KeyCode::Char('i') => {
                         app.input_mode = InputMode::EnteringCard {
                             target: CardTarget::Hand,
@@ -366,7 +354,7 @@ fn ui(f: &mut Frame, app: &App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(18), // board + controls (4 rows × 4 lines + 2 outer border)
+            Constraint::Length(22), // board + controls (4 rows × 5 lines + 2 outer border)
             Constraint::Length(9),  // hand (5 cards + header + 2 borders)
             Constraint::Length(3),  // input / status
             Constraint::Min(0),
@@ -386,7 +374,7 @@ fn ui(f: &mut Frame, app: &App) {
 
 fn draw_board(f: &mut Frame, app: &App, area: Rect) {
     let cell_w = 10u16;
-    let cell_h = 4u16; // 2 content lines + 2 border lines
+    let cell_h = 5u16; // 3 content lines + 2 border lines
 
     let block = Block::default().title("Board (4×4)").borders(Borders::ALL);
     let inner = block.inner(area);
@@ -436,16 +424,22 @@ fn draw_board(f: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(Color::DarkGray)
             };
 
-            let (top_line, bot_line, content_style) = match app.board.cell(row, col) {
+            let (top_line, mid_line, bot_line, content_style) = match app.board.cell(row, col) {
                 Cell::Empty => {
                     let style = if is_best {
                         Style::default().fg(Color::Yellow)
                     } else {
                         Style::default().fg(Color::DarkGray)
                     };
-                    ("   ·   ".to_string(), "       ".to_string(), style)
+                    (
+                        "       ".to_string(),
+                        "   ·   ".to_string(),
+                        "       ".to_string(),
+                        style,
+                    )
                 }
                 Cell::Blocked => (
+                    "▓▓▓▓▓▓▓".to_string(),
                     "▓▓▓▓▓▓▓".to_string(),
                     "▓▓▓▓▓▓▓".to_string(),
                     Style::default().fg(Color::Rgb(120, 60, 60)),
@@ -463,10 +457,9 @@ fn draw_board(f: &mut Frame, app: &App, area: Rect) {
                     } else {
                         Style::default().fg(color)
                     };
-                    let [top, bot] = arrow_grid(card.arrows);
-                    // top: "↖↑↗", bot: "↙↓↘  2P34"
+                    let [top, mid, bot] = arrow_grid(card.arrows);
                     let stat = card.stat_string();
-                    (top, format!("{bot} {stat}"), style)
+                    (top, format!("{mid} {stat}"), bot, style)
                 }
             };
 
@@ -497,6 +490,7 @@ fn draw_board(f: &mut Frame, app: &App, area: Rect) {
 
             let para = Paragraph::new(vec![
                 Line::from(Span::styled(format!("{:<8}", top_line), text_style)),
+                Line::from(Span::styled(format!("{:<8}", mid_line), text_style)),
                 Line::from(Span::styled(format!("{:<8}", bot_line), text_style)),
             ])
             .block(
@@ -509,26 +503,26 @@ fn draw_board(f: &mut Frame, app: &App, area: Rect) {
     }
 }
 
-/// Returns [top_arrows, bot_arrows] for display across 2 lines.
-/// top: ↖ ↑ ↗  ←  →
+/// Returns [top, mid, bot] arrow rows for display across 3 lines.
+/// top: ↖ ↑ ↗
+/// mid: ←   →
 /// bot: ↙ ↓ ↘
-fn arrow_grid(arrows: u8) -> [String; 2] {
+fn arrow_grid(arrows: u8) -> [String; 3] {
     let ch = |bit: u8, sym: char| if arrows & bit != 0 { sym } else { ' ' };
     let top = format!(
-        "{}{}{} {}{}",
+        "{}{}{}",
         ch(ARROW_NW, '↖'),
         ch(ARROW_N, '↑'),
         ch(ARROW_NE, '↗'),
-        ch(ARROW_W, '←'),
-        ch(ARROW_E, '→'),
     );
+    let mid = format!("{} {}", ch(ARROW_W, '←'), ch(ARROW_E, '→'),);
     let bot = format!(
         "{}{}{}",
         ch(ARROW_SW, '↙'),
         ch(ARROW_S, '↓'),
         ch(ARROW_SE, '↘'),
     );
-    [top, bot]
+    [top, mid, bot]
 }
 
 fn draw_hand(f: &mut Frame, app: &App, area: Rect) {
@@ -537,7 +531,7 @@ fn draw_hand(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(block, area);
 
     if app.hand.is_empty() {
-        f.render_widget(Paragraph::new("(empty)  Press 'a' to add a card"), inner);
+        f.render_widget(Paragraph::new("(empty)  Press 'i' to add a card"), inner);
         return;
     }
 
@@ -592,7 +586,7 @@ fn draw_controls(f: &mut Frame, area: Rect) {
         )]),
         Line::from(""),
         Line::from(vec![
-            Span::styled("wasd     ", Style::default().fg(Color::Yellow)),
+            Span::styled("↑↓←→     ", Style::default().fg(Color::Yellow)),
             Span::raw("move cursor"),
         ]),
         Line::from(vec![
@@ -622,6 +616,18 @@ fn draw_controls(f: &mut Frame, area: Rect) {
         Line::from(vec![
             Span::styled("Space    ", Style::default().fg(Color::Yellow)),
             Span::raw("solve best move"),
+        ]),
+        Line::from(vec![
+            Span::styled("w+shift  ", Style::default().fg(Color::Yellow)),
+            Span::raw("record win"),
+        ]),
+        Line::from(vec![
+            Span::styled("l+shift  ", Style::default().fg(Color::Yellow)),
+            Span::raw("record loss"),
+        ]),
+        Line::from(vec![
+            Span::styled("d+shift  ", Style::default().fg(Color::Yellow)),
+            Span::raw("record draw"),
         ]),
         Line::from(vec![
             Span::styled("r        ", Style::default().fg(Color::Yellow)),
