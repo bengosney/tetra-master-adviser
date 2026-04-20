@@ -2,11 +2,29 @@ name: Release
 
 on:
   push:
-    tags:
-    - v*
+    branches:
+    - main
 
 jobs:
+  check-tag:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_tag.outputs.version }}
+      tag: ${{ steps.get_tag.outputs.tag }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    - name: Check if commit is tagged
+      id: get_tag
+      run: |
+        TAG=$(git tag --points-at HEAD | grep '^v' | head -n1)
+        echo "tag=${TAG}" >> $GITHUB_OUTPUT
+        echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+
   test:
+    needs: check-tag
+    if: needs.check-tag.outputs.version != ''
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -15,7 +33,7 @@ jobs:
     - run: cargo test
 
   build:
-    needs: test
+    needs: [check-tag, test]
     strategy:
       matrix:
         include:
@@ -48,7 +66,7 @@ jobs:
         path: ${{ matrix.artifact }}
 
   release:
-    needs: build
+    needs: [check-tag, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -57,9 +75,29 @@ jobs:
       with:
         merge-multiple: true
     - name: Create GitHub release
-      id: gh_release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ needs.check-tag.outputs.tag }}
         files: |
           tetra-master-adviser-linux.zip
           tetra-master-adviser-windows.zip
+
+    - name: Upload Linux to Nexus Mods
+      uses: Nexus-Mods/upload-action@v1.0.0-beta.4
+      with:
+        api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+        file_group_id: ${{ secrets.NEXUSMODS_FILE_GROUP_ID }}
+        filename: tetra-master-adviser-linux.zip
+        display_name: Tetra Master Adviser Linux ${{ needs.check-tag.outputs.tag }}
+        version: ${{ needs.check-tag.outputs.version }}
+        file_category: main
+
+    - name: Upload Windows to Nexus Mods
+      uses: Nexus-Mods/upload-action@v1.0.0-beta.4
+      with:
+        api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+        file_group_id: ${{ secrets.NEXUSMODS_FILE_GROUP_ID }}
+        filename: tetra-master-adviser-windows.zip
+        display_name: Tetra Master Adviser Windows ${{ needs.check-tag.outputs.tag }}
+        version: ${{ needs.check-tag.outputs.version }}
+        file_category: main
