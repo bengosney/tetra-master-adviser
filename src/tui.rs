@@ -352,7 +352,9 @@ const CELL_W: u16 = 10;
 const CELL_H: u16 = 5; // 3 content lines + 2 border lines
 
 fn draw_board(f: &mut Frame, app: &App, area: Rect) {
-    let block = Block::default().title("Board (4×4)").borders(Borders::ALL);
+    let block = Block::default()
+        .title("Tetra Master Adviser")
+        .borders(Borders::ALL);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
