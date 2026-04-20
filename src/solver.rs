@@ -17,7 +17,6 @@ const RED_PROXY: Card = Card {
     phys_def: 2,
     mag_def: 2,
     arrows: 0xFF,
-    name: [0u8; 16],
 };
 
 const DEPTH: u32 = 3; // Blue, Red, Blue

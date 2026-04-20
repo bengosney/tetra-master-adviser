@@ -91,10 +91,9 @@ pub enum CardType {
 pub struct Card {
     pub attack: u8, // 0–15
     pub card_type: CardType,
-    pub phys_def: u8,   // 0–15
-    pub mag_def: u8,    // 0–15
-    pub arrows: u8,     // bitmask
-    pub name: [u8; 16], // optional label, null-padded
+    pub phys_def: u8, // 0–15
+    pub mag_def: u8,  // 0–15
+    pub arrows: u8,   // bitmask
 }
 
 impl Card {
@@ -105,7 +104,6 @@ impl Card {
             phys_def,
             mag_def,
             arrows,
-            name: [0u8; 16],
         }
     }
 
