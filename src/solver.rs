@@ -30,16 +30,26 @@ pub fn best_move(board: &Board, hand: &[Card]) -> Option<Move> {
     let empty = board.empty_cells();
     let mut best: Option<Move> = None;
     let mut best_score = i32::MIN;
+    let mut working_hand = hand.to_vec();
+    let last = working_hand.len() - 1;
 
-    for (ci, &card) in hand.iter().enumerate() {
+    for ci in 0..working_hand.len() {
+        let card = working_hand[ci];
         for &(row, col) in &empty {
             let mut sim = board.clone();
             if sim.place(row, col, card, Owner::Blue).is_err() {
                 continue;
             }
-            let mut remaining: Vec<Card> = hand.to_vec();
-            remaining.remove(ci);
-            let score = minimax(&sim, &remaining, DEPTH - 1, false, i32::MIN, i32::MAX);
+            working_hand.swap(ci, last);
+            let score = minimax(
+                &sim,
+                &mut working_hand[..last],
+                DEPTH - 1,
+                false,
+                i32::MIN,
+                i32::MAX,
+            );
+            working_hand.swap(ci, last);
             if score > best_score {
                 best_score = score;
                 best = Some(Move {
@@ -61,7 +71,7 @@ fn evaluate(board: &Board) -> i32 {
 
 fn minimax(
     board: &Board,
-    blue_hand: &[Card],
+    blue_hand: &mut [Card],
     depth: u32,
     blue_turn: bool,
     mut alpha: i32,
@@ -76,16 +86,18 @@ fn minimax(
         if blue_hand.is_empty() {
             return minimax(board, blue_hand, depth - 1, false, alpha, beta);
         }
+        let last = blue_hand.len() - 1;
         let mut best = i32::MIN;
-        'outer: for (ci, &card) in blue_hand.iter().enumerate() {
+        'outer: for ci in 0..=last {
+            let card = blue_hand[ci];
             for &(row, col) in &empty {
                 let mut sim = board.clone();
                 if sim.place(row, col, card, Owner::Blue).is_err() {
                     continue;
                 }
-                let mut next_hand = blue_hand.to_vec();
-                next_hand.remove(ci);
-                let score = minimax(&sim, &next_hand, depth - 1, false, alpha, beta);
+                blue_hand.swap(ci, last);
+                let score = minimax(&sim, &mut blue_hand[..last], depth - 1, false, alpha, beta);
+                blue_hand.swap(ci, last);
                 if score > best {
                     best = score;
                 }
