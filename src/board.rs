@@ -1,6 +1,8 @@
 use crate::card::{Card, CardType, Direction};
 use serde::{Deserialize, Serialize};
 
+pub const BOARD_SIZE: usize = 4;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Owner {
     Blue,
@@ -16,13 +18,13 @@ pub enum Cell {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Board {
-    pub cells: [[Cell; 4]; 4],
+    pub cells: [[Cell; BOARD_SIZE]; BOARD_SIZE],
 }
 
 impl Board {
     pub fn new() -> Self {
         Self {
-            cells: [[Cell::Empty; 4]; 4],
+            cells: [[Cell::Empty; BOARD_SIZE]; BOARD_SIZE],
         }
     }
 
@@ -55,7 +57,7 @@ impl Board {
             let (dr, dc) = dir.delta();
             let nr = row as i32 + dr;
             let nc = col as i32 + dc;
-            if !(0..4).contains(&nr) || !(0..4).contains(&nc) {
+            if !(0..BOARD_SIZE as i32).contains(&nr) || !(0..BOARD_SIZE as i32).contains(&nc) {
                 continue;
             }
             let (nr, nc) = (nr as usize, nc as usize);
@@ -78,7 +80,7 @@ impl Board {
         }
 
         // Resolve battles; chains add new entries to the queue.
-        let mut flipped = [[false; 4]; 4];
+        let mut flipped = [[false; BOARD_SIZE]; BOARD_SIZE];
         let mut i = 0;
         while i < queue.len() {
             let ((ar, ac), (dr, dc)) = queue[i];
@@ -114,7 +116,9 @@ impl Board {
                     let (ddr, ddc) = dir.delta();
                     let nr = dr as i32 + ddr;
                     let nc = dc as i32 + ddc;
-                    if !(0..4).contains(&nr) || !(0..4).contains(&nc) {
+                    if !(0..BOARD_SIZE as i32).contains(&nr)
+                        || !(0..BOARD_SIZE as i32).contains(&nc)
+                    {
                         continue;
                     }
                     let (nr, nc) = (nr as usize, nc as usize);
@@ -143,8 +147,8 @@ impl Board {
 
     pub fn empty_cells(&self) -> Vec<(usize, usize)> {
         let mut out = Vec::new();
-        for r in 0..4 {
-            for c in 0..4 {
+        for r in 0..BOARD_SIZE {
+            for c in 0..BOARD_SIZE {
                 if matches!(self.cells[r][c], Cell::Empty) {
                     out.push((r, c));
                 }

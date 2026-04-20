@@ -14,7 +14,7 @@ use ratatui::{
 };
 use std::io;
 
-use crate::board::{Board, Cell, Owner};
+use crate::board::{BOARD_SIZE, Board, Cell, Owner};
 use crate::card::{
     ARROW_E, ARROW_N, ARROW_NE, ARROW_NW, ARROW_S, ARROW_SE, ARROW_SW, ARROW_W, Card,
 };
@@ -66,7 +66,10 @@ impl App {
         let mut app = Self::new();
         app.board = s.board;
         app.hand = s.hand;
-        app.cursor = (s.cursor.0.min(3), s.cursor.1.min(3));
+        app.cursor = (
+            s.cursor.0.min(BOARD_SIZE - 1),
+            s.cursor.1.min(BOARD_SIZE - 1),
+        );
         app.status_msg = "State restored.".into();
         app
     }
@@ -154,9 +157,9 @@ fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App
                 InputMode::Normal => match key.code {
                     KeyCode::Char('q') => break,
                     KeyCode::Left => app.cursor.1 = app.cursor.1.saturating_sub(1),
-                    KeyCode::Right => app.cursor.1 = (app.cursor.1 + 1).min(3),
+                    KeyCode::Right => app.cursor.1 = (app.cursor.1 + 1).min(BOARD_SIZE - 1),
                     KeyCode::Up => app.cursor.0 = app.cursor.0.saturating_sub(1),
-                    KeyCode::Down => app.cursor.0 = (app.cursor.0 + 1).min(3),
+                    KeyCode::Down => app.cursor.0 = (app.cursor.0 + 1).min(BOARD_SIZE - 1),
                     KeyCode::Char('i') => {
                         app.input_mode = InputMode::EnteringCard {
                             target: CardTarget::Hand,
@@ -345,22 +348,22 @@ fn ui(f: &mut Frame, app: &App) {
     draw_status(f, app, chunks[2]);
 }
 
-fn draw_board(f: &mut Frame, app: &App, area: Rect) {
-    let cell_w = 10u16;
-    let cell_h = 5u16; // 3 content lines + 2 border lines
+const CELL_W: u16 = 10;
+const CELL_H: u16 = 5; // 3 content lines + 2 border lines
 
+fn draw_board(f: &mut Frame, app: &App, area: Rect) {
     let block = Block::default().title("Board (4×4)").borders(Borders::ALL);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    for row in 0..4usize {
-        for col in 0..4usize {
-            let x = inner.x + col as u16 * cell_w;
-            let y = inner.y + row as u16 * cell_h;
-            if x + cell_w > inner.x + inner.width || y + cell_h > inner.y + inner.height {
+    for row in 0..BOARD_SIZE {
+        for col in 0..BOARD_SIZE {
+            let x = inner.x + col as u16 * CELL_W;
+            let y = inner.y + row as u16 * CELL_H;
+            if x + CELL_W > inner.x + inner.width || y + CELL_H > inner.y + inner.height {
                 continue;
             }
-            let rect = Rect::new(x, y, cell_w, cell_h);
+            let rect = Rect::new(x, y, CELL_W, CELL_H);
             let is_cursor = app.cursor == (row, col);
             let is_best = app
                 .best
