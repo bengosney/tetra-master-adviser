@@ -1,3 +1,9 @@
+## 1.0.2 (2026-04-21)
+
+### Fix
+
+- **ci**: strip directory paths from release zip
+
 ## 1.0.1 (2026-04-21)
 
 ### Fix
