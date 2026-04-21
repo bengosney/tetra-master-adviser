@@ -352,7 +352,7 @@ mod board_tests {
 mod solver_tests {
     use crate::board::{Board, Cell, Owner};
     use crate::card::{ARROW_E, Card, CardType};
-    use crate::solver::best_move;
+    use crate::solver::{DEFAULT_TIME_BUDGET, best_move};
 
     fn strong_east() -> Card {
         Card::new(15, CardType::Physical, 15, 15, ARROW_E)
@@ -361,14 +361,14 @@ mod solver_tests {
     #[test]
     fn no_move_with_empty_hand() {
         let board = Board::new();
-        assert!(best_move(&board, &[]).is_none());
+        assert!(best_move(&board, &[], DEFAULT_TIME_BUDGET).is_none());
     }
 
     #[test]
     fn finds_a_move_on_empty_board() {
         let board = Board::new();
         let hand = vec![strong_east()];
-        let m = best_move(&board, &hand).unwrap();
+        let m = best_move(&board, &hand, DEFAULT_TIME_BUDGET).unwrap();
         assert!(m.row < 4 && m.col < 4);
         assert_eq!(m.card_index, 0);
     }
@@ -386,7 +386,7 @@ mod solver_tests {
             },
         );
         let hand = vec![strong_east()];
-        let m = best_move(&board, &hand).unwrap();
+        let m = best_move(&board, &hand, DEFAULT_TIME_BUDGET).unwrap();
         assert_eq!(
             (m.row, m.col),
             (0, 0),
