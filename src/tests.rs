@@ -352,7 +352,9 @@ mod board_tests {
 mod solver_tests {
     use crate::board::{Board, Cell, Owner};
     use crate::card::{ARROW_E, Card, CardType};
-    use crate::solver::best_move;
+    use std::time::Duration;
+
+    use crate::solver::{DEFAULT_TIME_BUDGET, best_move};
 
     fn strong_east() -> Card {
         Card::new(15, CardType::Physical, 15, 15, ARROW_E)
@@ -361,14 +363,14 @@ mod solver_tests {
     #[test]
     fn no_move_with_empty_hand() {
         let board = Board::new();
-        assert!(best_move(&board, &[]).is_none());
+        assert!(best_move(&board, &[], DEFAULT_TIME_BUDGET).is_none());
     }
 
     #[test]
     fn finds_a_move_on_empty_board() {
         let board = Board::new();
         let hand = vec![strong_east()];
-        let m = best_move(&board, &hand).unwrap();
+        let m = best_move(&board, &hand, DEFAULT_TIME_BUDGET).unwrap();
         assert!(m.row < 4 && m.col < 4);
         assert_eq!(m.card_index, 0);
     }
@@ -386,11 +388,72 @@ mod solver_tests {
             },
         );
         let hand = vec![strong_east()];
-        let m = best_move(&board, &hand).unwrap();
+        let m = best_move(&board, &hand, DEFAULT_TIME_BUDGET).unwrap();
         assert_eq!(
             (m.row, m.col),
             (0, 0),
             "solver should place at (0,0) to capture the red card"
         );
+    }
+
+    #[test]
+    fn min_depth_completes_with_zero_budget() {
+        // Even with near-zero time budget, solver must return a result
+        // because MIN_DEPTH runs without time checks.
+        let board = Board::new();
+        let hand = vec![strong_east()];
+        let m = best_move(&board, &hand, Duration::from_nanos(1)).unwrap();
+        assert!(m.row < 4 && m.col < 4);
+    }
+
+    #[test]
+    fn longer_budget_still_returns_valid_move() {
+        let board = Board::new();
+        let hand = vec![strong_east()];
+        let m = best_move(&board, &hand, Duration::from_secs(1)).unwrap();
+        assert!(m.row < 4 && m.col < 4);
+        assert_eq!(m.card_index, 0);
+    }
+
+    #[test]
+    fn result_consistent_across_budgets() {
+        // With a nearly-filled board, search is small enough to complete fully
+        // regardless of budget — results should match.
+        let mut board = Board::new();
+        let filler = Card::new(1, CardType::Physical, 1, 1, 0);
+        // Fill all but two cells
+        for r in 0..4 {
+            for c in 0..4 {
+                if (r, c) != (3, 2) && (r, c) != (3, 3) {
+                    let owner = if (r + c) % 2 == 0 {
+                        Owner::Blue
+                    } else {
+                        Owner::Red
+                    };
+                    board.set(r, c, Cell::Occupied { card: filler, owner });
+                }
+            }
+        }
+        let hand = vec![strong_east()];
+        let short = best_move(&board, &hand, Duration::from_nanos(1)).unwrap();
+        let long = best_move(&board, &hand, Duration::from_secs(5)).unwrap();
+        assert_eq!(
+            (short.row, short.col),
+            (long.row, long.col),
+            "small board should produce same result regardless of budget"
+        );
+    }
+
+    #[test]
+    fn multiple_cards_in_hand() {
+        let board = Board::new();
+        let hand = vec![
+            Card::new(1, CardType::Physical, 1, 1, ARROW_E),
+            Card::new(15, CardType::Physical, 15, 15, ARROW_E),
+            Card::new(5, CardType::Magic, 5, 5, ARROW_E),
+        ];
+        let m = best_move(&board, &hand, DEFAULT_TIME_BUDGET).unwrap();
+        assert!(m.card_index < 3);
+        assert!(m.row < 4 && m.col < 4);
     }
 }

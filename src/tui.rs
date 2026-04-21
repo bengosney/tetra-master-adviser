@@ -13,13 +13,17 @@ use ratatui::{
     widgets::{Block, Borders, Cell as RCell, Paragraph, Row, Table},
 };
 use std::io;
+use std::sync::mpsc;
+use std::time::Duration;
 
 use crate::board::{BOARD_SIZE, Board, Cell, Owner};
 use crate::card::{
     ARROW_E, ARROW_N, ARROW_NE, ARROW_NW, ARROW_S, ARROW_SE, ARROW_SW, ARROW_W, Card,
 };
-use crate::solver::{Move, best_move};
+use crate::solver::{DEFAULT_TIME_BUDGET, Move, best_move};
 use crate::state::{SaveState, load, save};
+
+const SPINNER_FRAMES: &[char] = &['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
 pub struct App {
     pub board: Board,
@@ -30,6 +34,9 @@ pub struct App {
     pub status_msg: String,
     pub cursor: (usize, usize),
     pub selected_hand: usize,
+    solver_rx: Option<mpsc::Receiver<Option<Move>>>,
+    spinner_tick: usize,
+    pub time_budget: Duration,
 }
 
 #[derive(PartialEq, Eq)]
@@ -59,6 +66,9 @@ impl App {
             status_msg: String::new(),
             cursor: (0, 0),
             selected_hand: 0,
+            solver_rx: None,
+            spinner_tick: 0,
+            time_budget: DEFAULT_TIME_BUDGET,
         }
     }
 
@@ -87,26 +97,65 @@ impl App {
             self.status_msg = "No cards in hand.".into();
             return;
         }
-        self.best = best_move(&self.board, &self.hand);
-        match &self.best {
-            None => self.status_msg = "No moves available.".into(),
-            Some(m) => {
-                self.selected_hand = m.card_index;
-                self.cursor = (m.row, m.col);
-                self.status_msg = format!(
-                    "Best move: card {} ({}) → ({},{})  net gain: {}  — press p to place",
-                    m.card_index + 1,
-                    self.hand[m.card_index].stat_string(),
-                    m.row,
-                    m.col,
-                    m.score
-                );
+        if self.solver_rx.is_some() {
+            return; // already searching
+        }
+        let (tx, rx) = mpsc::channel();
+        let board = self.board.clone();
+        let hand = self.hand.clone();
+        let time_budget = self.time_budget;
+        std::thread::spawn(move || {
+            let result = best_move(&board, &hand, time_budget);
+            let _ = tx.send(result);
+        });
+        self.solver_rx = Some(rx);
+        self.spinner_tick = 0;
+        self.status_msg = "Searching...".into();
+    }
+
+    fn check_solver(&mut self) {
+        let rx = match &self.solver_rx {
+            Some(rx) => rx,
+            None => return,
+        };
+        match rx.try_recv() {
+            Ok(result) => {
+                self.best = result;
+                self.solver_rx = None;
+                match &self.best {
+                    None => self.status_msg = "No moves available.".into(),
+                    Some(m) => {
+                        self.selected_hand = m.card_index;
+                        self.cursor = (m.row, m.col);
+                        self.status_msg = format!(
+                            "Best move: card {} ({}) → ({},{})  net gain: {}  — press p to place",
+                            m.card_index + 1,
+                            self.hand[m.card_index].stat_string(),
+                            m.row,
+                            m.col,
+                            m.score
+                        );
+                    }
+                }
+            }
+            Err(mpsc::TryRecvError::Empty) => {
+                self.spinner_tick = (self.spinner_tick + 1) % SPINNER_FRAMES.len();
+                self.status_msg =
+                    format!("{} Searching...", SPINNER_FRAMES[self.spinner_tick]);
+            }
+            Err(mpsc::TryRecvError::Disconnected) => {
+                self.solver_rx = None;
+                self.status_msg = "Solver failed.".into();
             }
         }
     }
+
+    pub fn is_searching(&self) -> bool {
+        self.solver_rx.is_some()
+    }
 }
 
-pub fn run() -> Result<()> {
+pub fn run(time_budget: Duration) -> Result<()> {
     let original_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |panic_info| {
         let _ = disable_raw_mode();
@@ -129,6 +178,7 @@ pub fn run() -> Result<()> {
             app
         }
     };
+    app.time_budget = time_budget;
     let result = run_loop(&mut terminal, &mut app);
 
     disable_raw_mode()?;
@@ -147,6 +197,18 @@ pub fn run() -> Result<()> {
 fn run_loop(terminal: &mut Terminal<CrosstermBackend<io::Stdout>>, app: &mut App) -> Result<()> {
     loop {
         terminal.draw(|f| ui(f, app))?;
+
+        app.check_solver();
+
+        // Use poll with timeout so UI stays responsive during search.
+        let timeout = if app.is_searching() {
+            Duration::from_millis(80)
+        } else {
+            Duration::from_secs(1)
+        };
+        if !event::poll(timeout)? {
+            continue;
+        }
 
         if let Event::Key(key) = event::read()? {
             if key.kind != KeyEventKind::Press {

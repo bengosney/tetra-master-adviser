@@ -84,6 +84,9 @@ pub enum CardType {
     Assault,  // A  — attacks all adjacent cards simultaneously
 }
 
+const STAT_RANGE: f32 = 16.0;
+const ROLL_MIDPOINT: f32 = 7.5;
+
 /// A Tetra Master card.
 /// Stats are 0–15 (the hex digit visible on screen).
 /// The true internal value is digit*16 + hidden (0–15); we use digit*16+8 as midpoint.
@@ -109,16 +112,16 @@ impl Card {
 
     /// Expected attack value using the visible digit midpoint.
     pub fn attack_value(self) -> f32 {
-        (self.attack as f32) * 16.0 + 7.5
+        (self.attack as f32) * STAT_RANGE + ROLL_MIDPOINT
     }
 
     /// Expected defense value against a given attacker type.
     pub fn defense_value(&self, attacker_type: CardType) -> f32 {
         // Pre-calculate the "mean" roll for each stat
-        // Formula: (Stat * 16) + 7.5 (the midpoint of 0..15)
-        let p_def = (self.phys_def as f32) * 16.0 + 7.5;
-        let m_def = (self.mag_def as f32) * 16.0 + 7.5;
-        let atk_pow = (self.attack as f32) * 16.0 + 7.5;
+        // Formula: (Stat * STAT_RANGE) + ROLL_MIDPOINT (the midpoint of 0..15)
+        let p_def = (self.phys_def as f32) * STAT_RANGE + ROLL_MIDPOINT;
+        let m_def = (self.mag_def as f32) * STAT_RANGE + ROLL_MIDPOINT;
+        let atk_pow = (self.attack as f32) * STAT_RANGE + ROLL_MIDPOINT;
 
         match attacker_type {
             CardType::Physical => p_def,
