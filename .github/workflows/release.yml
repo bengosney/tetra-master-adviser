@@ -68,9 +68,9 @@ jobs:
       uses: Nexus-Mods/upload-action@v1.0.0-beta.4
       with:
         api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-        file_group_id: ${{ secrets.NEXUSMODS_FILE_GROUP_ID }}
+        file_group_id: ${{ vars.NEXUSMODS_FILE_GROUP_ID_LINUX }}
         filename: tetra-master-adviser-linux.zip
-        display_name: Tetra Master Adviser Linux ${{ github.ref_name }}
+        display_name: Tetra Master Adviser - Linux
         version: ${{ github.ref_name }}
         file_category: main
 
@@ -78,8 +78,8 @@ jobs:
       uses: Nexus-Mods/upload-action@v1.0.0-beta.4
       with:
         api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-        file_group_id: ${{ secrets.NEXUSMODS_FILE_GROUP_ID }}
+        file_group_id: ${{ vars.NEXUSMODS_FILE_GROUP_ID_WINDOWS }}
         filename: tetra-master-adviser-windows.zip
-        display_name: Tetra Master Adviser Windows ${{ github.ref_name }}
+        display_name: Tetra Master Adviser - Windows
         version: ${{ github.ref_name }}
         file_category: main
