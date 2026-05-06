@@ -28,18 +28,18 @@ State is saved automatically to your system's temp directory and restored on nex
 
 ### Controls
 
-| Key       | Action                       |
-| --------- | ---------------------------- |
-| `↑↓←→`    | Move cursor                  |
-| `i`       | Add card to hand             |
-| `[` / `]` | Select hand card             |
-| `p`       | Place selected card on board |
-| `e`       | Place opponent card on board |
-| `f`       | Flip card colour             |
-| `b`       | Block cell                   |
-| `Space`   | Solve - find best move       |
-| `r`       | Reset board                  |
-| `q`       | Quit and save                |
+| Key        | Action                       |
+| ---------- | ---------------------------- |
+| `↑↓←→`     | Move cursor                  |
+| `i`        | Add card to hand             |
+| `[` or `]` | Select hand card             |
+| `p`        | Place selected card on board |
+| `e`        | Place opponent card on board |
+| `f`        | Flip card colour             |
+| `b`        | Block cell                   |
+| `Space`    | Solve - find best move       |
+| `r`        | Reset board                  |
+| `q`        | Quit and save                |
 
 ### Entering cards
 
