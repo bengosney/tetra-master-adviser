@@ -10,16 +10,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+    - run: sudo apt-get update && sudo apt-get install -y musl-tools
     - uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: x86_64-unknown-linux-musl
     - uses: Swatinem/rust-cache@v2
-    - run: cargo test
+    - run: cargo test --target x86_64-unknown-linux-musl
 
   build:
     needs: test
     strategy:
       matrix:
         include:
-        - target: x86_64-unknown-linux-gnu
+        - target: x86_64-unknown-linux-musl
           os: ubuntu-latest
           artifact: tetra-master-adviser-linux.zip
           binary: tetra-master-adviser
@@ -30,6 +33,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v4
+    - name: Install musl tools
+      if: contains(matrix.target, 'musl')
+      run: sudo apt-get update && sudo apt-get install -y musl-tools
     - uses: dtolnay/rust-toolchain@stable
       with:
         targets: ${{ matrix.target }}
